@@ -1,0 +1,23 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  invoice_no: MyString
+  customer_name: MyString
+  customer_phone: MyString
+  subtotal: 9.99
+  tax_total: 9.99
+  discount_total: 9.99
+  grand_total: 9.99
+  status: 1
+  billed_at: 2025-12-15 17:32:41
+
+two:
+  invoice_no: MyString
+  customer_name: MyString
+  customer_phone: MyString
+  subtotal: 9.99
+  tax_total: 9.99
+  discount_total: 9.99
+  grand_total: 9.99
+  status: 1
+  billed_at: 2025-12-15 17:32:41
