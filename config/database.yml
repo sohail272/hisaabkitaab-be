@@ -78,7 +78,4 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
-  <<: *default
-  database: hisaabkitaab_be_production
-  username: hisaabkitaab_be
-  password: <%= ENV["HISAABKITAAB_BE_DATABASE_PASSWORD"] %>
+  url: <%= ENV["DATABASE_URL"] %>
