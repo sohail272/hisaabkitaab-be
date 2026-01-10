@@ -2,7 +2,8 @@ class Api::V1::ProductsController < ApplicationController
   def index
     q = params[:query].to_s.strip
 
-    scope = Product.includes(:vendor).order(updated_at: :desc)
+    # Scope by store
+    scope = scope_by_store(Product.includes(:vendor)).order(updated_at: :desc)
 
     if q.present?
       scope = scope.where(
@@ -15,23 +16,41 @@ class Api::V1::ProductsController < ApplicationController
   end
 
   def show
-    product = Product.includes(:vendor).find(params[:id])
+    product = scope_by_store(Product).includes(:vendor).find(params[:id])
     render json: product.as_json(include: :vendor)
   end
 
   def create
-    product = Product.create!(product_params)
-    render json: product.reload.as_json(include: :vendor), status: :created
+    # Set store_id based on user's store or selected store (for org admin)
+    store_id = params[:store_id] || current_user.store_id
+    
+    # For org admin, store_id must be provided or use default
+    if current_user.org_admin? && !store_id
+      render json: { error: 'store_id is required for organization admins' }, status: :bad_request
+      return
+    end
+
+    product = scope_by_store(Product).build(product_params.merge(store_id: store_id))
+    
+    if product.save
+      render json: product.reload.as_json(include: :vendor), status: :created
+    else
+      render json: { error: product.errors.full_messages.join(', ') }, status: :unprocessable_entity
+    end
   end
 
   def update
-    product = Product.find(params[:id])
-    product.update!(product_params)
-    render json: product.reload.as_json(include: :vendor)
+    product = scope_by_store(Product).find(params[:id])
+    
+    if product.update(product_params)
+      render json: product.reload.as_json(include: :vendor)
+    else
+      render json: { error: product.errors.full_messages.join(', ') }, status: :unprocessable_entity
+    end
   end
 
   def destroy
-    product = Product.find(params[:id])
+    product = scope_by_store(Product).find(params[:id])
     product.destroy!
     head :no_content
   end
@@ -48,7 +67,8 @@ class Api::V1::ProductsController < ApplicationController
       :selling_price,
       :current_stock,
       :active,
-      :vendor_id
+      :vendor_id,
+      :store_id
     )
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_01_000003) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_09_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -22,8 +22,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000003) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "store_id"
     t.index ["active"], name: "index_customers_on_active"
     t.index ["phone"], name: "index_customers_on_phone"
+    t.index ["store_id"], name: "index_customers_on_store_id"
   end
 
   create_table "invoice_items", force: :cascade do |t|
@@ -56,11 +58,25 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000003) do
     t.bigint "customer_id"
     t.string "payment_method"
     t.decimal "roundoff", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "store_id"
     t.index ["billed_at"], name: "index_invoices_on_billed_at"
     t.index ["customer_id"], name: "index_invoices_on_customer_id"
     t.index ["customer_phone"], name: "index_invoices_on_customer_phone"
     t.index ["invoice_no"], name: "index_invoices_on_invoice_no", unique: true
     t.index ["status"], name: "index_invoices_on_status"
+    t.index ["store_id"], name: "index_invoices_on_store_id"
+  end
+
+  create_table "organizations", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "logo_url"
+    t.string "phone"
+    t.string "email"
+    t.text "address"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_organizations_on_active"
   end
 
   create_table "products", force: :cascade do |t|
@@ -75,10 +91,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000003) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.bigint "vendor_id"
+    t.bigint "store_id"
     t.index ["active"], name: "index_products_on_active"
     t.index ["barcode"], name: "index_products_on_barcode"
     t.index ["name"], name: "index_products_on_name"
     t.index ["sku"], name: "index_products_on_sku", unique: true
+    t.index ["store_id"], name: "index_products_on_store_id"
     t.index ["vendor_id"], name: "index_products_on_vendor_id"
   end
 
@@ -120,9 +138,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000003) do
     t.text "note"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "store_id"
     t.index ["purchase_no"], name: "index_purchases_on_purchase_no", unique: true
     t.index ["purchased_at"], name: "index_purchases_on_purchased_at"
     t.index ["status"], name: "index_purchases_on_status"
+    t.index ["store_id"], name: "index_purchases_on_store_id"
     t.index ["vendor_id"], name: "index_purchases_on_vendor_id"
   end
 
@@ -136,12 +156,47 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000003) do
     t.string "note"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "store_id"
     t.index ["invoice_id"], name: "index_stock_movements_on_invoice_id"
     t.index ["movement_type"], name: "index_stock_movements_on_movement_type"
     t.index ["occurred_at"], name: "index_stock_movements_on_occurred_at"
     t.index ["product_id", "occurred_at"], name: "index_stock_movements_on_product_id_and_occurred_at"
     t.index ["product_id"], name: "index_stock_movements_on_product_id"
     t.index ["purchase_id"], name: "index_stock_movements_on_purchase_id"
+    t.index ["store_id"], name: "index_stock_movements_on_store_id"
+  end
+
+  create_table "stores", force: :cascade do |t|
+    t.bigint "organization_id", null: false
+    t.string "name", null: false
+    t.string "code", null: false
+    t.text "address"
+    t.string "phone"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "email"
+    t.index ["active"], name: "index_stores_on_active"
+    t.index ["code"], name: "index_stores_on_code", unique: true
+    t.index ["organization_id"], name: "index_stores_on_organization_id"
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.bigint "organization_id", null: false
+    t.bigint "store_id"
+    t.string "email", null: false
+    t.string "password_digest", null: false
+    t.string "name", null: false
+    t.string "phone"
+    t.string "role", default: "store_worker", null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_users_on_active"
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["organization_id"], name: "index_users_on_organization_id"
+    t.index ["role"], name: "index_users_on_role"
+    t.index ["store_id"], name: "index_users_on_store_id"
   end
 
   create_table "vendors", force: :cascade do |t|
@@ -152,17 +207,28 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000003) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "store_id"
+    t.index ["store_id"], name: "index_vendors_on_store_id"
   end
 
+  add_foreign_key "customers", "stores"
   add_foreign_key "invoice_items", "invoices"
   add_foreign_key "invoice_items", "products"
   add_foreign_key "invoices", "customers"
+  add_foreign_key "invoices", "stores"
+  add_foreign_key "products", "stores"
   add_foreign_key "products", "vendors"
   add_foreign_key "purchase_items", "products"
   add_foreign_key "purchase_items", "purchases"
   add_foreign_key "purchase_payments", "purchases"
+  add_foreign_key "purchases", "stores"
   add_foreign_key "purchases", "vendors"
   add_foreign_key "stock_movements", "invoices"
   add_foreign_key "stock_movements", "products"
   add_foreign_key "stock_movements", "purchases"
+  add_foreign_key "stock_movements", "stores"
+  add_foreign_key "stores", "organizations"
+  add_foreign_key "users", "organizations"
+  add_foreign_key "users", "stores"
+  add_foreign_key "vendors", "stores"
 end

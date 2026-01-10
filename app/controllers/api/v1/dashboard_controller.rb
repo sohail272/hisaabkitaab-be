@@ -4,25 +4,31 @@ class Api::V1::DashboardController < ApplicationController
     today_start = today.beginning_of_day
     today_end = today.end_of_day
 
+    # Scope queries by store
+    invoices_scope = scope_by_store(Invoice)
+    products_scope = scope_by_store(Product)
+    purchases_scope = scope_by_store(Purchase)
+    vendors_scope = scope_by_store(Vendor)
+
     # Today's sales
-    today_invoices = Invoice.where(billed_at: today_start..today_end)
+    today_invoices = invoices_scope.where(billed_at: today_start..today_end)
                             .where(status: :finalized)
     today_sales_count = today_invoices.count
     today_sales_total = today_invoices.sum(:grand_total)
 
     # Latest invoice
-    latest_invoice = Invoice.includes(:invoice_items)
+    latest_invoice = invoices_scope.includes(:invoice_items)
                            .where(status: :finalized)
                            .order(billed_at: :desc)
                            .first
 
     # Recent invoices for listing
-    recent_invoices = Invoice.where(status: :finalized)
+    recent_invoices = invoices_scope.where(status: :finalized)
                             .order(Arel.sql("COALESCE(billed_at, created_at) DESC"))
                             .limit(3)
 
     # Recent customers (from recent invoices)
-    recent_customers = Invoice.where(status: :finalized)
+    recent_customers = invoices_scope.where(status: :finalized)
                              .where.not(customer_name: [nil, ""])
                              .select("customer_name, customer_phone, MAX(billed_at) as last_purchase")
                              .group(:customer_name, :customer_phone)
@@ -37,33 +43,33 @@ class Api::V1::DashboardController < ApplicationController
                              end
 
     # Low stock products
-    low_stock_products = Product.where(active: true)
+    low_stock_products = products_scope.where(active: true)
                                 .where("current_stock < ?", 10)
                                 .order(:current_stock)
                                 .limit(5)
 
     # Recent purchases
-    recent_purchases = Purchase.includes(:vendor)
+    recent_purchases = purchases_scope.includes(:vendor)
                               .where(status: :finalized)
                               .order(purchased_at: :desc)
                               .limit(5)
 
     # Outstanding payments (purchases with balance due)
-    outstanding_purchases = Purchase.includes(:purchase_payments)
+    outstanding_purchases = purchases_scope.includes(:purchase_payments)
                                     .where(status: :finalized)
                                     .limit(20)
                                     .select { |p| p.balance_due > 0 }
                                     .first(5)
 
     # Total counts
-    total_products = Product.where(active: true).count
-    total_vendors = Vendor.where(active: true).count
-    total_invoices = Invoice.where(status: :finalized).count
-    total_purchases = Purchase.where(status: :finalized).count
+    total_products = products_scope.where(active: true).count
+    total_vendors = vendors_scope.where(active: true).count
+    total_invoices = invoices_scope.where(status: :finalized).count
+    total_purchases = purchases_scope.where(status: :finalized).count
 
     # This month's sales
     month_start = today.beginning_of_month
-    month_invoices = Invoice.where(billed_at: month_start..today_end)
+    month_invoices = invoices_scope.where(billed_at: month_start..today_end)
                            .where(status: :finalized)
     month_sales_total = month_invoices.sum(:grand_total)
 

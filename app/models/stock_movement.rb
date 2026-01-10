@@ -1,4 +1,5 @@
 class StockMovement < ApplicationRecord
+  belongs_to :store, optional: true
   belongs_to :product
   belongs_to :purchase, optional: true
   belongs_to :invoice, optional: true

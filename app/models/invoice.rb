@@ -1,4 +1,5 @@
 class Invoice < ApplicationRecord
+  belongs_to :store, optional: true
   belongs_to :customer, optional: true
   has_many :invoice_items, dependent: :destroy
   has_many :stock_movements, dependent: :destroy
@@ -51,11 +52,16 @@ class Invoice < ApplicationRecord
   def generate_invoice_no
     return if invoice_no.present?
 
+    # Use store code if available, otherwise use default prefix
+    store_prefix = store&.code&.upcase || "INV"
     date_part = Time.zone.today.strftime("%Y%m%d")
-    prefix = "INV-#{date_part}-"
+    prefix = "#{store_prefix}-INV-#{date_part}-"
 
-    last_no = Invoice
-      .where("invoice_no LIKE ?", "#{prefix}%")
+    # Scope to store if store_id is present
+    scope = Invoice.where("invoice_no LIKE ?", "#{prefix}%")
+    scope = scope.where(store_id: store_id) if store_id.present?
+
+    last_no = scope
       .order(invoice_no: :desc)
       .limit(1)
       .pluck(:invoice_no)
@@ -100,6 +106,7 @@ class Invoice < ApplicationRecord
       StockMovement.create!(
         product: product,
         invoice: self,
+        store: store,
         movement_type: :out,
         quantity: item.quantity,
         occurred_at: Time.current

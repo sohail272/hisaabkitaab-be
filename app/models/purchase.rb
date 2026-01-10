@@ -1,4 +1,5 @@
 class Purchase < ApplicationRecord
+  belongs_to :store, optional: true
   belongs_to :vendor
   has_many :purchase_items, dependent: :destroy
   has_many :purchase_payments, dependent: :destroy
@@ -52,11 +53,16 @@ class Purchase < ApplicationRecord
   def generate_purchase_no
     return if purchase_no.present?
 
+    # Use store code if available, otherwise use default prefix
+    store_prefix = store&.code&.upcase || "PUR"
     date_part = Time.zone.today.strftime("%Y%m%d")
-    prefix = "PUR-#{date_part}-"
+    prefix = "#{store_prefix}-PUR-#{date_part}-"
 
-    last_no = Purchase
-      .where("purchase_no LIKE ?", "#{prefix}%")
+    # Scope to store if store_id is present
+    scope = Purchase.where("purchase_no LIKE ?", "#{prefix}%")
+    scope = scope.where(store_id: store_id) if store_id.present?
+
+    last_no = scope
       .order(purchase_no: :desc)
       .limit(1)
       .pluck(:purchase_no)
@@ -107,6 +113,7 @@ class Purchase < ApplicationRecord
       StockMovement.create!(
         product: product,
         purchase: self,
+        store: store,
         movement_type: :in,
         quantity: new_quantity,
         occurred_at: Time.current

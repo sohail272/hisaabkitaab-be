@@ -1,6 +1,6 @@
 class Api::V1::PurchasesController < ApplicationController
   def index
-    purchases = Purchase.includes(:vendor, :purchase_items => :product)
+    purchases = scope_by_store(Purchase).includes(:vendor, :purchase_items => :product)
                        .order(created_at: :desc)
                        .limit(200)
     render json: purchases.as_json(
@@ -13,7 +13,7 @@ class Api::V1::PurchasesController < ApplicationController
   end
 
   def show
-    purchase = Purchase.includes(:vendor, { purchase_items: :product }, :purchase_payments)
+    purchase = scope_by_store(Purchase).includes(:vendor, { purchase_items: :product }, :purchase_payments)
                        .find(params[:id])
     render json: purchase.as_json(
       include: {
@@ -26,7 +26,20 @@ class Api::V1::PurchasesController < ApplicationController
   end
 
   def create
-    purchase = Purchase.create!(purchase_params)
+    # Set store_id based on user's store or selected store (for org admin)
+    # Check purchase_params first, then params, then current_user.store_id
+    purchase_params_hash = purchase_params.to_h
+    store_id = purchase_params_hash[:store_id] || params[:store_id] || current_user.store_id
+    
+    # For org admin, store_id must be provided or use default
+    if current_user.org_admin? && !store_id
+      render json: { error: 'store_id is required for organization admins' }, status: :bad_request
+      return
+    end
+
+    purchase_params_hash[:store_id] = store_id
+    
+    purchase = Purchase.create!(purchase_params_hash)
     
     # Create payment if provided
     payment = get_payment_params
@@ -48,7 +61,7 @@ class Api::V1::PurchasesController < ApplicationController
   end
 
   def update
-    purchase = Purchase.find(params[:id])
+    purchase = scope_by_store(Purchase).find(params[:id])
     purchase.update!(purchase_params)
     
     # Update or create payment if provided
@@ -76,13 +89,13 @@ class Api::V1::PurchasesController < ApplicationController
   end
 
   def destroy
-    purchase = Purchase.find(params[:id])
+    purchase = scope_by_store(Purchase).find(params[:id])
     purchase.destroy!
     head :no_content
   end
 
   def add_payment
-    purchase = Purchase.find(params[:id])
+    purchase = scope_by_store(Purchase).find(params[:id])
     payment = payment_params_for_add
     purchase.purchase_payments.create!(payment) if payment[:amount].present?
     render json: purchase.reload.as_json(
@@ -103,6 +116,7 @@ class Api::V1::PurchasesController < ApplicationController
     params.require(:purchase).permit(
       :vendor_id,
       :note,
+      :store_id,
       purchase_items_attributes: [
         :id,
         :product_id,
